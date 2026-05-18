@@ -1,0 +1,38 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+
+# Capacitor
+.capacitor/
+
+# Android
+android/.gradle/
+android/.idea/
+android/local.properties
+android/app/build/
+android/build/
+android/.cxx/
+android/captures/
+android/*.iml
+android/app/*.iml
+android/.kotlin/
+*.apk
+*.aab
+*.keystore
+
+# iOS
+ios/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
