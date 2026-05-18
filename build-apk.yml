@@ -1,0 +1,62 @@
+name: بناء ملف APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:  # يسمح بالبناء يدويًا من تبويب Actions
+
+jobs:
+  build:
+    name: بناء APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 تنزيل المستودع
+        uses: actions/checkout@v4
+
+      - name: 🟢 تثبيت Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: ☕ تثبيت Java JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: 🔧 تثبيت Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+
+      - name: 📦 تثبيت تبعيات npm
+        run: npm ci --no-audit --no-fund
+
+      - name: 🔄 مزامنة Capacitor مع Android
+        run: npx cap sync android
+
+      - name: 🛠️ بناء ملف APK (debug)
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: 📝 إعادة تسمية APK
+        run: |
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/scanner-app.apk
+          ls -lh artifacts/
+
+      - name: 📤 رفع ملف APK كـ artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: scanner-app-apk
+          path: artifacts/scanner-app.apk
+          retention-days: 30
+
+      - name: 🎉 رسالة النجاح
+        run: |
+          echo "✅ تم بناء ملف APK بنجاح!"
+          echo "📥 لتنزيله: اذهب إلى تبويب Actions → اختر آخر تشغيل → اضغط على scanner-app-apk تحت Artifacts"
