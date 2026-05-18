@@ -1,0 +1,18 @@
+{
+	"appId": "com.scanner.app",
+	"appName": "الماسح الضوئي",
+	"webDir": "www",
+	"android": {
+		"allowMixedContent": true,
+		"captureInput": true,
+		"webContentsDebuggingEnabled": false
+	},
+	"plugins": {
+		"CameraPreview": {
+			"disableAudio": true
+		}
+	},
+	"server": {
+		"androidScheme": "https"
+	}
+}

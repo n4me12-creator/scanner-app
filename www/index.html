@@ -1,0 +1,1682 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="الماسح الضوئي">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="تطبيق ماسح المستندات: التقاط الصور وتحويلها إلى PDF">
+<title>الماسح الضوئي — تحويل الصور إلى PDF</title>
+
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=Cairo:wght@600;800&display=swap" rel="stylesheet">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- سكربت Capacitor (يتم حقنه تلقائيًا عند بناء APK، لن يضر في المتصفح) -->
+<script type="module">
+  // يتم تحميله من الـ APK
+  try {
+    if (window.Capacitor) {
+      window.__IS_NATIVE__ = window.Capacitor.isNativePlatform();
+    }
+  } catch(e) {}
+</script>
+<style>
+  :root{
+    --bg:#0b1220; --bg-2:#0f172a; --panel:#111c34; --panel-2:#162241;
+    --line:#1f2c4d; --ink:#e8eefb; --muted:#8ea0c5;
+    --accent:#f59e0b; --accent-2:#fbbf24;
+    --ok:#22c55e; --danger:#ef4444;
+    --shadow:0 20px 60px rgba(0,0,0,.45);
+    --safe-top:env(safe-area-inset-top,0);
+    --safe-bot:env(safe-area-inset-bottom,0);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);
+    font-family:'Tajawal',system-ui,sans-serif;overflow:hidden;
+    -webkit-user-select:none;user-select:none}
+  body{display:flex;flex-direction:column;background:
+      radial-gradient(1200px 600px at 80% -10%, #1b2a55 0%, transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, #2a1f4a 0%, transparent 60%),
+      var(--bg);
+      padding-top:var(--safe-top);padding-bottom:var(--safe-bot)}
+
+  /* ===== شاشة التثبيت (تظهر عند بدء التشغيل) ===== */
+  .install-screen{
+    position:fixed;inset:0;background:linear-gradient(160deg,#0b1220 0%,#1a1430 100%);
+    display:flex;flex-direction:column;z-index:100;
+    padding:24px;padding-top:max(24px,var(--safe-top));padding-bottom:max(24px,var(--safe-bot));
+  }
+  .install-screen.gone{display:none}
+
+  .install-hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:18px}
+  .app-icon{
+    width:120px;height:120px;border-radius:28px;
+    background:linear-gradient(135deg,#1e293b,#0f172a);
+    display:grid;place-items:center;
+    box-shadow:0 25px 60px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.06) inset;
+    position:relative;overflow:hidden;
+  }
+  .app-icon::before{
+    content:"";position:absolute;width:140%;height:140%;top:-40%;left:30%;
+    background:radial-gradient(circle,rgba(251,191,36,.25),transparent 60%);
+  }
+  .app-icon img{width:80px;height:80px;position:relative;z-index:1;filter:drop-shadow(0 6px 18px rgba(245,158,11,.35))}
+
+  .install-screen h1{font-family:'Cairo';margin:8px 0 0;font-size:28px;letter-spacing:.3px}
+  .tagline{margin:0;color:var(--muted);font-size:15px;max-width:340px;line-height:1.7}
+
+  .features{display:flex;flex-direction:column;gap:10px;width:100%;max-width:360px;margin-top:8px}
+  .feat{
+    display:flex;gap:12px;align-items:center;text-align:right;
+    background:rgba(255,255,255,.03);border:1px solid var(--line);
+    padding:12px 14px;border-radius:14px;
+  }
+  .feat-ic{
+    width:36px;height:36px;border-radius:10px;flex-shrink:0;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:grid;place-items:center;color:#1a1206;
+  }
+  .feat-ic svg{width:18px;height:18px}
+  .feat-txt b{display:block;font-size:14px;font-weight:700}
+  .feat-txt span{font-size:12px;color:var(--muted)}
+
+  .install-actions{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+  .btn-install{
+    padding:16px;border:none;border-radius:16px;cursor:pointer;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    color:#1a1206;font-weight:800;font-size:16px;font-family:inherit;
+    box-shadow:0 14px 35px rgba(245,158,11,.4);
+    display:flex;align-items:center;justify-content:center;gap:10px;
+  }
+  .btn-install:active{transform:scale(.98)}
+  .btn-skip{
+    padding:14px;border:1px solid var(--line);border-radius:16px;cursor:pointer;
+    background:transparent;color:var(--ink);font-weight:600;font-size:14px;font-family:inherit;
+  }
+  .install-status{font-size:12px;color:var(--muted);text-align:center;margin-top:6px;min-height:18px}
+
+  /* تعليمات iOS */
+  .ios-modal{
+    position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);
+    z-index:200;display:none;align-items:flex-end;justify-content:center;
+  }
+  .ios-modal.show{display:flex}
+  .ios-modal .sheet{
+    background:var(--bg-2);width:100%;max-width:480px;
+    border-top-left-radius:22px;border-top-right-radius:22px;
+    padding:20px;padding-bottom:max(20px,var(--safe-bot));
+    border-top:1px solid var(--line);
+  }
+  .ios-modal h3{margin:0 0 12px;font-family:'Cairo';font-size:18px}
+  .ios-step{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .ios-step:last-child{border-bottom:none}
+  .ios-step .n{
+    width:28px;height:28px;border-radius:50%;flex-shrink:0;
+    background:var(--accent);color:#1a1206;display:grid;place-items:center;
+    font-weight:800;font-size:14px;
+  }
+  .ios-step p{margin:4px 0 0;font-size:14px;line-height:1.6}
+  .ios-step svg{display:inline-block;vertical-align:middle;margin:0 4px}
+  .ios-close{
+    width:100%;margin-top:14px;padding:12px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink);border-radius:12px;cursor:pointer;
+    font-family:inherit;font-weight:700;
+  }
+
+  /* ===== التطبيق الرئيسي ===== */
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 18px;border-bottom:1px solid var(--line);
+    backdrop-filter:blur(10px);background:rgba(11,18,32,.6);z-index:5;
+  }
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .logo{
+    width:36px;height:36px;border-radius:10px;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:grid;place-items:center;box-shadow:0 6px 20px rgba(245,158,11,.35);
+  }
+  .brand .logo svg{width:20px;height:20px}
+  .brand h1{font-family:'Cairo';font-size:18px;margin:0;letter-spacing:.3px}
+  .brand p{margin:0;font-size:11px;color:var(--muted)}
+  .count-pill{
+    display:flex;align-items:center;gap:6px;background:var(--panel);
+    border:1px solid var(--line);padding:6px 12px;border-radius:999px;
+    font-size:13px;font-weight:700;
+  }
+  .count-pill b{color:var(--accent-2)}
+
+  main{flex:1;position:relative;overflow:hidden}
+  .stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#000}
+  #video{width:100%;height:100%;object-fit:cover;display:block}
+  .stage.hidden{display:none}
+
+  .overlay{position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,0) 22%,rgba(0,0,0,0) 78%,rgba(0,0,0,.55))}
+  .frame-guide{position:absolute;inset:11% 8%;border:2px dashed rgba(255,255,255,.35);border-radius:14px;
+    transition:border-color .25s}
+  .frame-guide::before,.frame-guide::after,.frame-guide span::before,.frame-guide span::after{
+    content:"";position:absolute;width:26px;height:26px;border:3px solid var(--accent);
+    transition:border-color .25s, box-shadow .25s}
+  .frame-guide::before{top:-3px;right:-3px;border-bottom:none;border-left:none;border-radius:0 14px 0 0}
+  .frame-guide::after{top:-3px;left:-3px;border-bottom:none;border-right:none;border-radius:14px 0 0 0}
+  .frame-guide span::before{bottom:-3px;right:-3px;border-top:none;border-left:none;border-radius:0 0 14px 0}
+  .frame-guide span::after{bottom:-3px;left:-3px;border-top:none;border-right:none;border-radius:0 0 0 14px}
+
+  /* حالة الكشف: زوايا تتغير ألوانها */
+  .frame-guide.detecting::before,.frame-guide.detecting::after,
+  .frame-guide.detecting span::before,.frame-guide.detecting span::after{
+    border-color:#22d3ee;box-shadow:0 0 18px rgba(34,211,238,.6)}
+  .frame-guide.locked::before,.frame-guide.locked::after,
+  .frame-guide.locked span::before,.frame-guide.locked span::after{
+    border-color:var(--ok);box-shadow:0 0 22px rgba(34,197,94,.75);
+    animation:lock-pulse .35s ease-out 2}
+  @keyframes lock-pulse{
+    0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}
+  }
+
+  /* عدّاد تنازلي وسط الإطار */
+  .countdown{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    font-family:'Cairo';font-size:80px;font-weight:900;color:#fff;
+    text-shadow:0 4px 20px rgba(0,0,0,.7),0 0 30px rgba(34,197,94,.6);
+    z-index:3;opacity:0;pointer-events:none;
+    transition:opacity .2s;
+  }
+  .countdown.show{opacity:1;animation:cd-pop .9s ease-out}
+  @keyframes cd-pop{
+    0%{transform:translate(-50%,-50%) scale(.5);opacity:0}
+    20%{transform:translate(-50%,-50%) scale(1.15);opacity:1}
+    100%{transform:translate(-50%,-50%) scale(1);opacity:1}
+  }
+  .hint{position:absolute;top:18px;left:50%;transform:translateX(-50%);
+    background:rgba(0,0,0,.55);backdrop-filter:blur(6px);
+    padding:8px 14px;border-radius:999px;font-size:12px;border:1px solid rgba(255,255,255,.12)}
+
+  /* زر الفلاش العائم */
+  .cam-tools{
+    position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:10px;z-index:3;
+  }
+  .cam-tool{
+    width:50px;height:50px;border-radius:50%;border:1px solid rgba(255,255,255,.18);
+    background:rgba(0,0,0,.55);backdrop-filter:blur(8px);color:#fff;cursor:pointer;
+    display:none;align-items:center;justify-content:center;position:relative;
+    transition:background .2s, transform .15s, box-shadow .25s, color .2s;
+  }
+  .cam-tool.visible{display:flex}
+  .cam-tool:active{transform:scale(.92)}
+  .cam-tool svg{width:22px;height:22px;transition:fill .2s}
+
+  /* وضع: فلاش لحظي (يومض مع الالتقاط) */
+  .cam-tool.mode-flash{
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    color:#1a1206;border-color:transparent;
+    box-shadow:0 8px 20px rgba(245,158,11,.4);
+  }
+  .cam-tool.mode-flash svg path{fill:#1a1206}
+
+  /* وضع: إنارة مستمرة */
+  .cam-tool.mode-torch{
+    background:#fff;color:#1a1206;border-color:transparent;
+    box-shadow:0 0 0 4px rgba(255,255,255,.25),0 8px 24px rgba(255,255,255,.45);
+    animation:torch-pulse 2s ease-in-out infinite;
+  }
+  .cam-tool.mode-torch svg path{fill:var(--accent)}
+  @keyframes torch-pulse{
+    0%,100%{box-shadow:0 0 0 4px rgba(255,255,255,.2),0 8px 20px rgba(255,255,255,.3)}
+    50%{box-shadow:0 0 0 6px rgba(255,255,255,.35),0 10px 30px rgba(255,255,255,.55)}
+  }
+
+  /* شارة الوضع تحت الأيقونة */
+  .cam-tool .mode-label{
+    position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);
+    font-size:10px;font-weight:800;color:#fff;background:rgba(0,0,0,.65);
+    padding:2px 8px;border-radius:999px;white-space:nowrap;
+    border:1px solid rgba(255,255,255,.1);font-family:inherit;
+  }
+  .cam-tool.mode-off .mode-label{display:none}
+  .cam-tool.mode-flash .mode-label{background:var(--accent);color:#1a1206;border-color:transparent}
+  .cam-tool.mode-torch .mode-label{background:#fff;color:#1a1206;border-color:transparent}
+
+  /* وميض زر التصوير عند الالتقاط */
+  .flash-overlay{
+    position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:4;
+    transition:opacity .08s;
+  }
+  .flash-overlay.fire{opacity:.55;transition:opacity .04s}
+
+  .start-screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:24px;gap:18px}
+  .start-screen .icon-big{width:88px;height:88px;border-radius:24px;
+    background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid var(--line);
+    display:grid;place-items:center;box-shadow:var(--shadow)}
+  .start-screen .icon-big svg{width:40px;height:40px;color:var(--accent-2)}
+  .start-screen h2{font-family:'Cairo';margin:0;font-size:22px}
+  .start-screen p{margin:0;color:var(--muted);max-width:360px;line-height:1.7;font-size:14px}
+  .start-screen button{padding:14px 28px;border:none;border-radius:14px;cursor:pointer;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    color:#1a1206;font-weight:800;font-size:15px;font-family:inherit;
+    box-shadow:0 10px 30px rgba(245,158,11,.35)}
+  .start-screen button:active{transform:scale(.97)}
+
+  .controls{position:relative;padding:14px 16px 18px;
+    background:linear-gradient(to top,rgba(11,18,32,.95),rgba(11,18,32,.75));
+    border-top:1px solid var(--line);z-index:4}
+  .pages-row{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 12px;scrollbar-width:thin;scroll-snap-type:x mandatory}
+  .pages-row::-webkit-scrollbar{height:6px}
+  .pages-row::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+  .thumb{position:relative;flex:0 0 auto;width:74px;height:96px;border-radius:10px;
+    background:#0a1024;border:2px solid var(--line);overflow:hidden;scroll-snap-align:start;cursor:pointer}
+  .thumb.active{border-color:var(--accent)}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .thumb .num{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.7);color:#fff;
+    font-size:11px;font-weight:700;padding:2px 6px;border-radius:6px}
+  .thumb .del{position:absolute;bottom:4px;left:4px;width:22px;height:22px;border-radius:6px;border:none;
+    background:rgba(239,68,68,.9);color:#fff;display:grid;place-items:center;cursor:pointer}
+  .thumb .del svg{width:12px;height:12px}
+  .empty-thumbs{color:var(--muted);font-size:13px;padding:30px 10px;text-align:center;width:100%}
+
+  .main-row{display:flex;align-items:center;justify-content:space-between;gap:14px}
+  .icon-btn{width:50px;height:50px;border-radius:14px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink);display:grid;place-items:center;cursor:pointer;
+    transition:transform .15s}
+  .icon-btn:active{transform:scale(.93)}
+  .icon-btn svg{width:22px;height:22px}
+  .icon-btn.primary{background:linear-gradient(135deg,var(--ok),#16a34a);border-color:transparent;color:#fff}
+
+  .shutter{width:78px;height:78px;border-radius:50%;
+    background:#fff;border:5px solid rgba(255,255,255,.25);cursor:pointer;position:relative;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);transition:transform .15s, box-shadow .25s}
+  .shutter::after{content:"";position:absolute;inset:6px;border-radius:50%;
+    background:linear-gradient(135deg,#fff,#e7eaf3);box-shadow:inset 0 2px 6px rgba(0,0,0,.15)}
+  .shutter:active{transform:scale(.92);box-shadow:0 0 0 4px rgba(245,158,11,.35),0 6px 20px rgba(0,0,0,.5)}
+  .shutter.flash::after{background:#fffbeb}
+
+  /* حاوية زر التصوير مع الحلقة */
+  .shutter-wrap{position:relative;display:grid;place-items:center}
+  .shutter-progress{
+    position:absolute;width:104px;height:104px;pointer-events:none;
+    transform:rotate(-90deg);opacity:0;transition:opacity .25s;
+  }
+  .shutter-wrap.auto-on .shutter-progress{opacity:1}
+  .shutter-progress .track{stroke:rgba(255,255,255,.15)}
+  .shutter-progress .fill{
+    stroke:var(--accent);transition:stroke-dashoffset .2s linear;
+    filter:drop-shadow(0 0 6px rgba(245,158,11,.6));
+  }
+  .shutter-wrap.armed{animation:armed-pulse .5s ease-out}
+  @keyframes armed-pulse{
+    0%{transform:scale(1)} 50%{transform:scale(1.12)} 100%{transform:scale(1)}
+  }
+
+  /* علامات الزوايا الذكية (تظهر عند الثبات) */
+  .smart-corners{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .3s;z-index:3}
+  .smart-corners.show{opacity:1}
+  .smart-corner{
+    position:absolute;width:18px;height:18px;border-radius:50%;
+    background:var(--accent);box-shadow:0 0 14px rgba(245,158,11,.7),0 0 0 3px rgba(255,255,255,.9);
+  }
+  .smart-corner.tl{top:11%;right:8%} /* RTL: المعكوس */
+  .smart-corner.tr{top:11%;left:8%}
+  .smart-corner.bl{bottom:11%;right:8%}
+  .smart-corner.br{bottom:11%;left:8%}
+
+  /* نص حالة الالتقاط التلقائي */
+  .auto-status{
+    position:absolute;top:60px;left:50%;transform:translateX(-50%);
+    background:rgba(0,0,0,.7);backdrop-filter:blur(6px);color:#fff;
+    padding:8px 18px;border-radius:999px;font-size:13px;font-weight:700;
+    border:1px solid rgba(255,255,255,.12);z-index:3;
+    opacity:0;transition:opacity .25s, transform .25s;
+    pointer-events:none;white-space:nowrap;
+  }
+  .auto-status.show{opacity:1}
+  .auto-status.armed{
+    background:var(--accent);color:#1a1206;border-color:transparent;
+    box-shadow:0 6px 24px rgba(245,158,11,.45);
+  }
+
+  .review{position:absolute;inset:0;background:var(--bg-2);display:flex;flex-direction:column;
+    transform:translateY(100%);transition:transform .35s cubic-bezier(.2,.7,.2,1);z-index:10}
+  .review.open{transform:translateY(0)}
+  .review-head{display:flex;align-items:center;justify-content:space-between;
+    padding:14px 16px;border-bottom:1px solid var(--line)}
+  .review-head h3{margin:0;font-family:'Cairo';font-size:17px}
+  .review-head .close{background:transparent;border:1px solid var(--line);color:var(--ink);
+    padding:8px 12px;border-radius:10px;cursor:pointer;font-family:inherit;font-size:13px}
+  .review-body{flex:1;overflow:auto;padding:16px}
+  .preview-wrap{background:#0a1024;border:1px solid var(--line);border-radius:14px;
+    padding:14px;display:flex;align-items:center;justify-content:center;min-height:50vh}
+  .preview-wrap img{max-width:100%;max-height:60vh;border-radius:8px;box-shadow:var(--shadow)}
+  .filters{display:flex;gap:10px;overflow-x:auto;padding:14px 2px}
+  .filter{flex:0 0 auto;cursor:pointer}
+  .filter .chip{padding:8px 14px;border-radius:999px;background:var(--panel);border:1px solid var(--line);
+    font-size:13px;color:var(--muted);font-family:inherit;font-weight:600}
+  .filter.active .chip{background:var(--accent);color:#1a1206;border-color:transparent}
+  .review-foot{padding:14px 16px;border-top:1px solid var(--line);display:flex;gap:10px}
+  .review-foot button{flex:1;padding:14px;border-radius:12px;border:none;cursor:pointer;
+    font-family:inherit;font-weight:700;font-size:14px}
+  .btn-secondary{background:var(--panel);color:var(--ink);border:1px solid var(--line) !important}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#1a1206}
+
+  .export-sheet{position:absolute;left:0;right:0;bottom:0;background:var(--bg-2);
+    border-top-left-radius:22px;border-top-right-radius:22px;padding:18px 18px 22px;
+    border-top:1px solid var(--line);transform:translateY(100%);
+    transition:transform .35s cubic-bezier(.2,.7,.2,1);z-index:11;box-shadow:0 -20px 50px rgba(0,0,0,.5)}
+  .export-sheet.open{transform:translateY(0)}
+  .export-sheet .grab{width:42px;height:4px;background:#33415a;border-radius:2px;margin:0 auto 14px}
+  .export-sheet h3{margin:0 0 12px;font-family:'Cairo';font-size:18px;text-align:center}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+  .field label{font-size:13px;color:var(--muted)}
+  .field input,.field select{background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    padding:12px;border-radius:12px;font-family:inherit;font-size:14px}
+  .row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .export-actions{display:flex;gap:10px;margin-top:6px}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(80px);
+    background:#0f172a;border:1px solid var(--line);color:#fff;padding:10px 18px;
+    border-radius:999px;font-size:13px;z-index:300;transition:transform .3s;box-shadow:var(--shadow)}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+
+  /* نافذة PDF جاهز */
+  .pdf-ready{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);
+    z-index:250;display:none;align-items:center;justify-content:center;padding:20px}
+  .pdf-ready.show{display:flex}
+  .pdf-ready .box{
+    background:var(--bg-2);border:1px solid var(--line);border-radius:20px;
+    padding:24px 22px;max-width:380px;width:100%;text-align:center;
+    box-shadow:var(--shadow);
+  }
+  .pdf-ready .check{
+    width:72px;height:72px;border-radius:50%;margin:0 auto 14px;
+    background:linear-gradient(135deg,var(--ok),#16a34a);
+    display:grid;place-items:center;
+    box-shadow:0 14px 30px rgba(34,197,94,.4);
+  }
+  .pdf-ready h3{margin:0 0 6px;font-family:'Cairo';font-size:20px}
+  .pdf-ready .file-info{
+    margin:14px 0 18px;padding:12px;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;display:flex;align-items:center;gap:12px;text-align:right;
+  }
+  .pdf-ready .file-info .pdf-ic{
+    width:42px;height:42px;border-radius:10px;flex-shrink:0;
+    background:linear-gradient(135deg,#ef4444,#dc2626);
+    display:grid;place-items:center;color:#fff;font-weight:800;font-size:11px;
+  }
+  .pdf-ready .file-info .file-meta{flex:1;min-width:0}
+  .pdf-ready .file-info .file-name{font-weight:700;font-size:14px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
+  .pdf-ready .file-info .file-size{font-size:12px;color:var(--muted);margin-top:2px}
+  .pdf-ready .actions{display:flex;flex-direction:column;gap:10px}
+  .pdf-ready .actions button{
+    padding:13px;border-radius:12px;border:none;cursor:pointer;font-family:inherit;
+    font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .pdf-ready .actions button svg{width:18px;height:18px}
+  .pdf-ready .actions .share{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#1a1206}
+  .pdf-ready .actions .download{background:var(--panel);color:var(--ink);border:1px solid var(--line) !important}
+  .pdf-ready .actions .close{background:transparent;color:var(--muted);font-weight:600}
+
+  .hidden-canvas{display:none}
+
+  @media (min-width:700px){
+    main,header,.controls{max-width:520px;margin:0 auto;width:100%}
+    main,header,.controls{border-left:1px solid var(--line);border-right:1px solid var(--line)}
+  }
+
+  /* ===== الوضع الأصلي (APK مبني بـ Capacitor) ===== */
+  body.is-native .install-screen{display:none !important} /* لا حاجة لشاشة تثبيت في APK */
+  body.is-native #video{display:none} /* الكاميرا تُعرض أصليًا خلف WebView */
+  body.is-native .stage{background:transparent !important}
+  body.is-native main{background:transparent}
+  /* اجعل خلفية WebView شفافة في منطقة الكاميرا فقط */
+  body.is-native .stage.hidden{display:none}
+</style>
+</head>
+<body>
+
+<!-- ========= شاشة التثبيت ========= -->
+<div class="install-screen" id="installScreen">
+  <div class="install-hero">
+    <div class="app-icon">
+      <img src="icon-512.png" alt="">
+    </div>
+    <h1>الماسح الضوئي</h1>
+    <p class="tagline">حوّل أوراقك إلى ملفات PDF احترافية باستخدام كاميرا جوالك</p>
+
+    <div class="features">
+      <div class="feat">
+        <div class="feat-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </div>
+        <div class="feat-txt"><b>التقاط متعدد</b><span>صوّر صفحات متتالية بسرعة</span></div>
+      </div>
+      <div class="feat">
+        <div class="feat-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        </div>
+        <div class="feat-txt"><b>فلاتر احترافية</b><span>وضوح أعلى للنصوص والمستندات</span></div>
+      </div>
+      <div class="feat">
+        <div class="feat-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </div>
+        <div class="feat-txt"><b>تصدير PDF</b><span>A4 / Letter / Legal بجودة قابلة للضبط</span></div>
+      </div>
+      <div class="feat">
+        <div class="feat-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+        </div>
+        <div class="feat-txt"><b>يعمل بدون إنترنت</b><span>بعد التثبيت يبقى متاحًا دائمًا</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="install-actions">
+    <button class="btn-install" id="installBtn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      تثبيت التطبيق على الجهاز
+    </button>
+    <button class="btn-skip" id="skipBtn">المتابعة دون تثبيت</button>
+    <div class="install-status" id="installStatus"></div>
+  </div>
+</div>
+
+<!-- ========= تعليمات iOS ========= -->
+<div class="ios-modal" id="iosModal">
+  <div class="sheet">
+    <h3>تثبيت التطبيق على iPhone / iPad</h3>
+    <div class="ios-step">
+      <div class="n">1</div>
+      <p>اضغط أيقونة المشاركة
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+        في شريط Safari السفلي.</p>
+    </div>
+    <div class="ios-step">
+      <div class="n">2</div>
+      <p>اختر <b>"إضافة إلى الشاشة الرئيسية"</b> (Add to Home Screen).</p>
+    </div>
+    <div class="ios-step">
+      <div class="n">3</div>
+      <p>اضغط <b>"إضافة"</b> في الأعلى. ستجد أيقونة التطبيق على شاشتك الرئيسية.</p>
+    </div>
+    <button class="ios-close" id="iosClose">حسنًا، فهمت</button>
+  </div>
+</div>
+
+<!-- ========= التطبيق الرئيسي ========= -->
+<header>
+  <div class="brand">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#1a1206" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="9" y1="13" x2="15" y2="13"/>
+        <line x1="9" y1="17" x2="15" y2="17"/>
+      </svg>
+    </div>
+    <div>
+      <h1>الماسح الضوئي</h1>
+      <p>صوّر — اضبط — احفظ PDF</p>
+    </div>
+  </div>
+  <div class="count-pill">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+    <span><b id="pageCount">0</b> صفحة</span>
+  </div>
+</header>
+
+<main>
+  <div class="stage hidden" id="cameraStage">
+    <video id="video" autoplay playsinline muted></video>
+    <div class="overlay"><div class="frame-guide"><span></span></div></div>
+    <div class="hint">ضع المستند داخل الإطار</div>
+
+    <!-- أدوات الكاميرا العائمة -->
+    <div class="cam-tools">
+      <button class="cam-tool mode-off" id="torchBtn" aria-label="الفلاش">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 2 3 14 12 14 11 22 21 10 12 10 13 2 Z"/>
+        </svg>
+        <span class="mode-label">فلاش</span>
+      </button>
+      <button class="cam-tool visible mode-off" id="autoCapBtn" aria-label="التقاط تلقائي">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="13" r="4"/>
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <path d="M9 13a3 3 0 0 1 3-3" stroke-width="2.5"/>
+        </svg>
+        <span class="mode-label">يدوي</span>
+      </button>
+    </div>
+
+    <!-- نص الحالة التلقائية -->
+    <div class="auto-status" id="autoStatus">حرّك الكاميرا فوق المستند</div>
+
+    <!-- علامات زوايا ذكية تظهر عند الاستعداد للالتقاط -->
+    <div class="smart-corners" id="smartCorners">
+      <div class="smart-corner tl"></div>
+      <div class="smart-corner tr"></div>
+      <div class="smart-corner bl"></div>
+      <div class="smart-corner br"></div>
+    </div>
+
+    <!-- وميض خفيف على الفيديو عند الالتقاط -->
+    <div class="flash-overlay" id="flashOverlay"></div>
+  </div>
+
+  <div class="start-screen" id="startScreen">
+    <div class="icon-big">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </svg>
+    </div>
+    <h2>ابدأ مسح المستندات</h2>
+    <p>سيطلب المتصفح إذن استخدام الكاميرا. صوّر صفحاتك واحدة تلو الأخرى ثم احفظها كملف PDF واحد.</p>
+    <button id="startBtn">تشغيل الكاميرا</button>
+    <p style="font-size:11px;opacity:.6">يعمل بشكل أفضل على الجوال • Chrome / Safari</p>
+  </div>
+
+  <div class="review" id="reviewScreen">
+    <div class="review-head">
+      <h3>مراجعة الصفحة <span id="revIdx">1</span></h3>
+      <button class="close" id="reviewClose">إغلاق</button>
+    </div>
+    <div class="review-body">
+      <div class="preview-wrap"><img id="previewImg" alt="معاينة"></div>
+      <div class="filters" id="filters">
+        <div class="filter active" data-filter="original"><div class="chip">أصلية</div></div>
+        <div class="filter" data-filter="document"><div class="chip">مستند</div></div>
+        <div class="filter" data-filter="grayscale"><div class="chip">رمادي</div></div>
+        <div class="filter" data-filter="bw"><div class="chip">أبيض/أسود</div></div>
+        <div class="filter" data-filter="enhance"><div class="chip">تحسين</div></div>
+      </div>
+    </div>
+    <div class="review-foot">
+      <button class="btn-secondary" id="rotateBtn">↻ تدوير 90°</button>
+      <button class="btn-primary" id="saveEditBtn">حفظ التعديل</button>
+    </div>
+  </div>
+</main>
+
+<div class="controls" id="controls" style="display:none">
+  <div class="pages-row" id="pagesRow">
+    <div class="empty-thumbs">لم تلتقط أي صفحة بعد — اضغط الزر الأبيض للالتقاط</div>
+  </div>
+  <div class="main-row">
+    <button class="icon-btn" id="switchBtn" title="تبديل الكاميرا">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+      </svg>
+    </button>
+    <div class="shutter-wrap" id="shutterWrap">
+      <svg class="shutter-progress" viewBox="0 0 110 110">
+        <circle class="track" cx="55" cy="55" r="50" fill="none" stroke-width="4"/>
+        <circle id="shutterProgressCircle" class="fill" cx="55" cy="55" r="50" fill="none"
+                stroke-width="4" stroke-linecap="round"
+                stroke-dasharray="314.16" stroke-dashoffset="314.16"/>
+      </svg>
+      <button class="shutter" id="shutter" aria-label="التقاط"></button>
+    </div>
+    <button class="icon-btn primary" id="exportBtn" title="حفظ PDF">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<div class="export-sheet" id="exportSheet">
+  <div class="grab"></div>
+  <h3>حفظ ملف PDF</h3>
+  <div class="field"><label>اسم الملف</label><input type="text" id="fileName" value="مستند"></div>
+  <div class="row-2">
+    <div class="field"><label>حجم الورق</label>
+      <select id="paperSize">
+        <option value="a4">A4</option><option value="letter">Letter</option>
+        <option value="legal">Legal</option><option value="auto">حسب الصورة</option>
+      </select>
+    </div>
+    <div class="field"><label>الاتجاه</label>
+      <select id="paperOrient">
+        <option value="portrait">عمودي</option><option value="landscape">أفقي</option>
+      </select>
+    </div>
+  </div>
+  <div class="row-2">
+    <div class="field"><label>جودة الصورة</label>
+      <select id="quality">
+        <option value="0.92">عالية</option>
+        <option value="0.8" selected>متوسطة</option>
+        <option value="0.65">منخفضة (حجم أقل)</option>
+      </select>
+    </div>
+    <div class="field"><label>الهوامش</label>
+      <select id="margins">
+        <option value="0">بدون</option>
+        <option value="10" selected>صغيرة</option>
+        <option value="20">متوسطة</option>
+      </select>
+    </div>
+  </div>
+  <div class="export-actions">
+    <button class="btn-secondary" id="cancelExport" style="flex:1;padding:14px;border-radius:12px;border:1px solid var(--line);font-family:inherit;font-weight:700;cursor:pointer">إلغاء</button>
+    <button class="btn-primary" id="doExport" style="flex:2;padding:14px;border-radius:12px;border:none;font-family:inherit;font-weight:700;cursor:pointer">إنشاء PDF</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<canvas id="workCanvas" class="hidden-canvas"></canvas>
+
+<!-- نافذة "تم إنشاء PDF" -->
+<div class="pdf-ready" id="pdfReady">
+  <div class="box">
+    <div class="check">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    </div>
+    <h3>تم إنشاء PDF بنجاح</h3>
+    <div class="file-info">
+      <div class="pdf-ic">PDF</div>
+      <div class="file-meta">
+        <div class="file-name" id="pdfFileName">مستند.pdf</div>
+        <div class="file-size" id="pdfFileSize">— KB</div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="share" id="sharePdfBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+          <polyline points="16 6 12 2 8 6"/>
+          <line x1="12" y1="2" x2="12" y2="15"/>
+        </svg>
+        مشاركة / حفظ في الملفات
+      </button>
+      <button class="download" id="downloadPdfBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        تنزيل مباشر
+      </button>
+      <button class="close" id="pdfReadyClose">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========= منطق التثبيت (PWA) ========= */
+let deferredPrompt = null;
+const installScreen = document.getElementById('installScreen');
+const installBtn = document.getElementById('installBtn');
+const skipBtn = document.getElementById('skipBtn');
+const installStatus = document.getElementById('installStatus');
+const iosModal = document.getElementById('iosModal');
+const iosClose = document.getElementById('iosClose');
+
+// اكتشاف النظام
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                  || window.navigator.standalone === true;
+
+// إذا كان مثبتًا (يعمل في وضع التطبيق المستقل) → تخطّ شاشة التثبيت
+if (isStandalone) {
+  installScreen.classList.add('gone');
+}
+
+// في الوضع الأصلي (APK): لا حاجة لشاشة التثبيت
+if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+  installScreen.classList.add('gone');
+}
+
+// التقاط حدث التثبيت من المتصفح (Chrome / Edge / Samsung Internet)
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installStatus.textContent = 'جاهز للتثبيت ✓';
+});
+
+// زر التثبيت
+installBtn.addEventListener('click', async () => {
+  // iOS: عرض التعليمات اليدوية
+  if (isIOS) {
+    iosModal.classList.add('show');
+    return;
+  }
+  // المتصفحات الأخرى: استدعاء نافذة التثبيت
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    if (outcome === 'accepted') {
+      installStatus.textContent = 'تم التثبيت بنجاح ✓';
+      setTimeout(() => installScreen.classList.add('gone'), 500);
+    } else {
+      installStatus.textContent = 'تم إلغاء التثبيت';
+    }
+  } else {
+    // لم يصدر الحدث (متصفح غير مدعوم أو تم التثبيت سابقًا أو HTTP)
+    installStatus.textContent = 'التثبيت غير متاح في هذا المتصفح — استخدم Chrome أو Edge أو Safari عبر HTTPS';
+  }
+});
+
+// تجاوز التثبيت
+skipBtn.addEventListener('click', () => {
+  installScreen.classList.add('gone');
+});
+
+iosClose.addEventListener('click', () => iosModal.classList.remove('show'));
+
+// عند اكتمال التثبيت من خارج التطبيق
+window.addEventListener('appinstalled', () => {
+  installStatus.textContent = 'تم التثبيت ✓';
+  setTimeout(() => installScreen.classList.add('gone'), 600);
+});
+
+/* ========= تسجيل Service Worker ========= */
+if ('serviceWorker' in navigator && !window.__IS_NATIVE__) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch((err) => {
+      console.warn('SW registration failed:', err);
+    });
+  });
+}
+
+/* ============================================================
+   ========= وحدة الكاميرا الأصلية (Capacitor Native) =========
+   ============================================================
+   عندما يعمل التطبيق كـ APK مبني بـ Capacitor، نستخدم إضافة
+   camera-preview التي توصلنا مباشرة لـ Camera2 API في أندرويد
+   فيعمل فلاش الكاميرا الحقيقي. عندما يعمل في المتصفح، نستخدم
+   getUserMedia العادية.
+============================================================ */
+const NATIVE = {
+  enabled: false,
+  CameraPreview: null,
+  facing: 'rear',
+  flash: 'off', // 'off' | 'on' | 'auto' | 'torch'
+};
+
+async function initNativeCamera(){
+  if(!window.Capacitor || !window.Capacitor.isNativePlatform()) return false;
+  try{
+    NATIVE.CameraPreview = window.Capacitor.Plugins.CameraPreview;
+    if(NATIVE.CameraPreview){
+      NATIVE.enabled = true;
+      // اجعل خلفية مرحلة الكاميرا شفافة ليظهر العرض الأصلي خلفها
+      document.body.classList.add('is-native');
+      return true;
+    }
+  }catch(e){ console.warn('Native camera init failed:', e); }
+  return false;
+}
+
+async function nativeStartCamera(){
+  if(!NATIVE.enabled || !NATIVE.CameraPreview) return false;
+  try{
+    await NATIVE.CameraPreview.stop().catch(()=>{});
+    await NATIVE.CameraPreview.start({
+      position: NATIVE.facing,
+      width: window.innerWidth,
+      height: window.innerHeight,
+      x: 0, y: 0,
+      toBack: true,        // الكاميرا خلف WebView (يظهر من خلال خلفية شفافة)
+      paddingBottom: 0,
+      rotateWhenOrientationChanged: true,
+      storeToFile: false,
+      disableExifHeaderStripping: false,
+      enableHighResolution: true,
+    });
+    return true;
+  }catch(e){
+    console.error('CameraPreview.start failed:', e);
+    showToast('فشل تشغيل الكاميرا الأصلية: ' + (e.message||e));
+    return false;
+  }
+}
+
+async function nativeStopCamera(){
+  if(!NATIVE.enabled) return;
+  try{ await NATIVE.CameraPreview.stop(); }catch(_){}
+}
+
+async function nativeCapture(){
+  if(!NATIVE.enabled) return null;
+  try{
+    const r = await NATIVE.CameraPreview.capture({ quality: 92 });
+    // r.value يحتوي base64
+    return 'data:image/jpeg;base64,' + r.value;
+  }catch(e){
+    console.error('CameraPreview.capture failed:', e);
+    return null;
+  }
+}
+
+async function nativeSetFlash(mode){
+  if(!NATIVE.enabled) return;
+  try{
+    await NATIVE.CameraPreview.setFlashMode({ flashMode: mode });
+    NATIVE.flash = mode;
+  }catch(e){ console.warn('setFlashMode:', e); }
+}
+
+async function nativeSwitchCamera(){
+  if(!NATIVE.enabled) return;
+  try{
+    await NATIVE.CameraPreview.flip();
+    NATIVE.facing = NATIVE.facing === 'rear' ? 'front' : 'rear';
+  }catch(e){ console.warn('flip:', e); }
+}
+
+// نسخة مبسطة من sample للالتقاط التلقائي في النظام الأصلي
+async function nativeSampleFrame(){
+  if(!NATIVE.enabled) return null;
+  try{
+    const r = await NATIVE.CameraPreview.sample({ quality: 30 });
+    return r.value; // base64 (مصغّر)
+  }catch(_){ return null; }
+}
+
+/* ========= حالة التطبيق ========= */
+const state = {
+  pages: [], stream: null, facing: 'environment', currentEdit: -1,
+  track: null, torchSupported: false,
+  imageCapture: null,           // ImageCapture API instance
+  flashCaptureSupported: false, // هل يدعم takePhoto مع fillLightMode: 'flash'؟
+  // 'off' | 'flash' (لمبة الكاميرا تومض مع الالتقاط) | 'torch' (إنارة دائمة)
+  flashMode: 'off'
+};
+
+/* ========= حالة الالتقاط التلقائي ========= */
+const auto = {
+  enabled: false,
+  loopId: null,
+  lastSample: null,
+  smallCanvas: null,
+  stableCount: 0,
+  REQUIRED: 4,           // 4 عينات × 260ms ≈ 1.0 ثانية ثبات (أسرع)
+  INTERVAL: 260,
+  THRESHOLD: 10,         // أكثر تسامحًا مع الاهتزاز البسيط
+  cooldownUntil: 0,
+  capturing: false,
+};
+
+const el = (id) => document.getElementById(id);
+const video = el('video');
+const startBtn = el('startBtn');
+const startScreen = el('startScreen');
+const cameraStage = el('cameraStage');
+const controls = el('controls');
+const shutter = el('shutter');
+const switchBtn = el('switchBtn');
+const exportBtn = el('exportBtn');
+const pagesRow = el('pagesRow');
+const pageCount = el('pageCount');
+const toast = el('toast');
+const reviewScreen = el('reviewScreen');
+const reviewClose = el('reviewClose');
+const previewImg = el('previewImg');
+const filters = el('filters');
+const rotateBtn = el('rotateBtn');
+const saveEditBtn = el('saveEditBtn');
+const exportSheet = el('exportSheet');
+const cancelExport = el('cancelExport');
+const doExport = el('doExport');
+const workCanvas = el('workCanvas');
+const torchBtn = el('torchBtn');
+const flashOverlay = el('flashOverlay');
+const autoCapBtn = el('autoCapBtn');
+const autoStatus = el('autoStatus');
+const smartCorners = el('smartCorners');
+const shutterWrap = el('shutterWrap');
+const shutterProgressCircle = el('shutterProgressCircle');
+const SHUTTER_CIRC = 314.16; // محيط الدائرة 2πr (r=50)
+
+function showToast(msg, ms=2200){
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toast.classList.remove('show'), ms);
+}
+
+/* ========= الكاميرا ========= */
+async function startCamera(){
+  // فرع 1: كاميرا أصلية في APK
+  if(await initNativeCamera()){
+    startScreen.style.display = 'none';
+    cameraStage.classList.remove('hidden');
+    controls.style.display = 'block';
+
+    const ok = await nativeStartCamera();
+    if(!ok) return;
+
+    // وضع الفلاش الافتراضي
+    await nativeSetFlash(state.flashMode === 'flash' ? 'on' : state.flashMode === 'torch' ? 'torch' : 'off');
+
+    // في الوضع الأصلي: زر الفلاش ظاهر دومًا (يعمل بضمان)
+    state.torchSupported = true;
+    state.flashCaptureSupported = true;
+    updateFlashUI();
+
+    // تفعيل الالتقاط التلقائي
+    setTimeout(() => {
+      if(!auto.enabled) setAutoCapture(true);
+    }, 600);
+    return;
+  }
+
+  // فرع 2: كاميرا الويب العادية
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    showToast('المتصفح لا يدعم الكاميرا'); return;
+  }
+  try{
+    stopAutoLoop();
+    if(state.stream){ state.stream.getTracks().forEach(t => t.stop()); }
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode: state.facing, width:{ideal:1920}, height:{ideal:1080} },
+      audio:false
+    });
+    state.stream = stream;
+    state.track = stream.getVideoTracks()[0];
+    state.flashMode = 'off';
+    video.srcObject = stream;
+    startScreen.style.display = 'none';
+    cameraStage.classList.remove('hidden');
+    controls.style.display = 'block';
+
+    setTimeout(() => detectTorchSupport(), 300);
+
+    setTimeout(() => {
+      if(!auto.enabled) setAutoCapture(true);
+      else startAutoLoop();
+    }, 600);
+  }catch(err){
+    console.error(err);
+    showToast('تعذر تشغيل الكاميرا — تأكد من السماح بالوصول');
+  }
+}
+
+async function detectTorchSupport(){
+  state.torchSupported = false;
+  state.flashCaptureSupported = false;
+  state.imageCapture = null;
+
+  if(!state.track) { updateFlashUI(); return; }
+
+  // 1) جرّب إنشاء ImageCapture (الطريقة الأقوى - تتحكم بفلاش الكاميرا الحقيقي)
+  if(window.ImageCapture){
+    try{
+      state.imageCapture = new ImageCapture(state.track);
+      // افحص هل يدعم takePhoto مع flash
+      const caps = await state.imageCapture.getPhotoCapabilities();
+      if(caps && caps.fillLightMode && caps.fillLightMode.includes('flash')){
+        state.flashCaptureSupported = true;
+        state.torchSupported = true;
+      }
+    }catch(e){ console.warn('ImageCapture init:', e); }
+  }
+
+  // 2) افحص دعم torch (للإنارة المستمرة) عبر getCapabilities
+  if(!state.torchSupported){
+    try{
+      const caps = state.track.getCapabilities ? state.track.getCapabilities() : {};
+      if(caps.torch){ state.torchSupported = true; }
+    }catch(_){}
+  }
+
+  // 3) كحل أخير: جرّب تشغيل torch مباشرة لمعرفة الدعم
+  if(!state.torchSupported){
+    try{
+      await state.track.applyConstraints({ advanced: [{ torch: true }] });
+      await state.track.applyConstraints({ advanced: [{ torch: false }] });
+      state.torchSupported = true;
+    }catch(_){ state.torchSupported = false; }
+  }
+
+  updateFlashUI();
+}
+
+function updateFlashUI(){
+  if(!state.torchSupported){
+    // الجهاز لا يدعم التحكم بفلاش LED من المتصفح → اخفِ الزر
+    torchBtn.classList.remove('visible','mode-off','mode-flash','mode-torch');
+    state.flashMode = 'off';
+    return;
+  }
+  torchBtn.classList.add('visible');
+  torchBtn.classList.remove('mode-off','mode-flash','mode-torch');
+  torchBtn.classList.add('mode-' + state.flashMode);
+
+  const labelEl = torchBtn.querySelector('.mode-label');
+  if(state.flashMode === 'flash')      labelEl.textContent = 'فلاش';
+  else if(state.flashMode === 'torch') labelEl.textContent = 'إنارة';
+  else                                 labelEl.textContent = 'إيقاف';
+}
+
+async function setTorchHardware(on){
+  if(!state.track || !state.torchSupported) return false;
+  try{
+    await state.track.applyConstraints({ advanced: [{ torch: !!on }] });
+    return true;
+  }catch(err){
+    console.warn('torch error:', err);
+    return false;
+  }
+}
+
+async function cycleFlashMode(){
+  if(!state.torchSupported){
+    showToast('فلاش الكاميرا غير مدعوم على هذا الجهاز');
+    return;
+  }
+  const order = ['off','flash','torch'];
+  const next = order[(order.indexOf(state.flashMode) + 1) % order.length];
+
+  // إذا كنا خارج وضع الإنارة → أطفئ الفلاش
+  await setTorchHardware(next === 'torch');
+
+  state.flashMode = next;
+  const msgs = {
+    off:   'الفلاش مُطفأ',
+    flash: 'لمبة الفلاش ستومض مع الالتقاط ⚡',
+    torch: 'إنارة LED مستمرة 💡'
+  };
+  showToast(msgs[next], 1600);
+  updateFlashUI();
+}
+
+torchBtn.addEventListener('click', cycleFlashMode);
+
+startBtn.addEventListener('click', () => {
+  ensureAudio(); // تهيئة الصوت مع تفاعل المستخدم
+  startCamera();
+});
+switchBtn.addEventListener('click', async () => {
+  if(NATIVE.enabled){
+    await nativeSwitchCamera();
+  } else {
+    state.facing = state.facing === 'environment' ? 'user' : 'environment';
+    startCamera();
+  }
+});
+
+/* ========= صوت غالق الكاميرا (Web Audio API) ========= */
+let audioCtx = null;
+function ensureAudio(){
+  if(audioCtx) return audioCtx;
+  try{
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }catch(e){ return null; }
+  return audioCtx;
+}
+
+function playShutterSound(){
+  const ctx = ensureAudio();
+  if(!ctx) return;
+  try{
+    if(ctx.state === 'suspended') ctx.resume();
+    const now = ctx.currentTime;
+
+    // نقرة الغالق الأولى (high frequency click)
+    const click1 = makeShutterClick(ctx, now, 2800, 0.05, 0.55);
+    // نقرة الميكانيكية الثانية بعد 65ms ("كا-تشانك")
+    const click2 = makeShutterClick(ctx, now + 0.065, 1900, 0.06, 0.4);
+  }catch(e){ console.warn('shutter sfx:', e); }
+}
+
+function makeShutterClick(ctx, startAt, freq, dur, vol){
+  // ضوضاء انفجارية مفلترة لمحاكاة الغالق الميكانيكي
+  const bufLen = Math.floor(ctx.sampleRate * dur);
+  const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for(let i=0; i<bufLen; i++){
+    // ضوضاء بيضاء مع تلاشٍ سريع
+    d[i] = (Math.random()*2 - 1) * Math.pow(1 - i/bufLen, 2.2);
+  }
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.value = freq;
+  filter.Q.value = 1.3;
+
+  const gain = ctx.createGain();
+  gain.gain.value = vol;
+
+  src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+  src.start(startAt);
+  src.stop(startAt + dur);
+}
+
+function blobToDataURL(blob){
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+
+/* ========= التقاط ========= */
+async function performCapture(viaAuto=false){
+  if(auto.capturing) return;
+  auto.capturing = true;
+
+  try{
+    // 🔊 صوت الغالق فورًا
+    playShutterSound();
+
+    // وميض زر التصوير
+    shutter.classList.add('flash');
+    setTimeout(() => shutter.classList.remove('flash'), 120);
+
+    if(viaAuto && navigator.vibrate){ navigator.vibrate(50); }
+
+    let dataURL = null;
+
+    // ===== الوضع الأصلي (APK): الكاميرا الحقيقية مع فلاش حقيقي =====
+    if(NATIVE.enabled){
+      // اضبط الفلاش قبل الالتقاط (هذا هو ما يطلق لمبة الكاميرا فعلًا)
+      const mode = state.flashMode === 'flash' ? 'on'
+                 : state.flashMode === 'torch' ? 'torch'
+                 : 'off';
+      await nativeSetFlash(mode);
+      // اللتقاط — هنا تنطلق لمبة الكاميرا الحقيقية
+      dataURL = await nativeCapture();
+      // أعد الفلاش لـ off بعد الالتقاط (إلا إذا كان وضع إنارة)
+      if(state.flashMode !== 'torch') await nativeSetFlash('off');
+    }
+
+    // ===== وضع الويب: محاولات متسلسلة =====
+    if(!dataURL && !NATIVE.enabled && state.stream){
+      const wantFlash = (state.flashMode === 'flash');
+
+      // المحاولة 1: ImageCapture API
+      if(wantFlash && state.imageCapture && state.flashCaptureSupported){
+        try{
+          const blob = await state.imageCapture.takePhoto({ fillLightMode: 'flash' });
+          dataURL = await blobToDataURL(blob);
+        }catch(e){ console.warn('takePhoto:', e); }
+      }
+
+      // المحاولة 2: torch + التقاط من الفيديو
+      if(!dataURL && wantFlash && state.torchSupported){
+        const lit = await setTorchHardware(true);
+        if(lit){
+          flashOverlay.classList.add('fire');
+          await new Promise(r => setTimeout(r, 400));
+        }
+        const w0 = video.videoWidth, h0 = video.videoHeight;
+        if(w0 && h0){
+          workCanvas.width = w0; workCanvas.height = h0;
+          workCanvas.getContext('2d').drawImage(video, 0, 0, w0, h0);
+          dataURL = workCanvas.toDataURL('image/jpeg', 0.92);
+        }
+        if(lit){
+          await setTorchHardware(false);
+          flashOverlay.classList.remove('fire');
+        }
+      }
+
+      // المحاولة 3: التقاط عادي
+      if(!dataURL){
+        const w = video.videoWidth, h = video.videoHeight;
+        if(w && h){
+          workCanvas.width = w; workCanvas.height = h;
+          workCanvas.getContext('2d').drawImage(video, 0, 0, w, h);
+          dataURL = workCanvas.toDataURL('image/jpeg', 0.92);
+        }
+      }
+    }
+
+    if(!dataURL){ auto.capturing = false; return; }
+
+    state.pages.push({ original: dataURL, current: dataURL, filter: 'original', rotation: 0 });
+    refreshPages();
+    showToast(`تم التقاط الصفحة ${state.pages.length}${viaAuto ? ' (تلقائي ✓)' : ''}`);
+
+    if(viaAuto){
+      auto.cooldownUntil = Date.now() + 2500;
+      auto.stableCount = 0;
+      auto.lastSample = null;
+      updateStabilityUI(0, false);
+      shutterWrap.classList.remove('armed');
+      smartCorners.classList.remove('show');
+    }
+  }finally{
+    auto.capturing = false;
+  }
+}
+
+shutter.addEventListener('click', () => performCapture(false));
+
+/* ========= الالتقاط التلقائي (كشف الثبات) ========= */
+function startAutoLoop(){
+  stopAutoLoop();
+  if(!auto.enabled || !state.stream) return;
+  auto.loopId = setTimeout(autoTick, auto.INTERVAL);
+}
+function stopAutoLoop(){
+  if(auto.loopId){ clearTimeout(auto.loopId); auto.loopId = null; }
+  auto.lastSample = null;
+  auto.stableCount = 0;
+}
+
+function autoTick(){
+  auto.loopId = null;
+  if(!auto.enabled || !state.stream){ return; }
+  if(auto.capturing || Date.now() < auto.cooldownUntil){
+    auto.loopId = setTimeout(autoTick, auto.INTERVAL); return;
+  }
+  if(!video.videoWidth){ // الكاميرا لم تجهز بعد
+    auto.loopId = setTimeout(autoTick, auto.INTERVAL); return;
+  }
+
+  // عيّنة منخفضة الدقة لقياس فروق الإطارات
+  if(!auto.smallCanvas){
+    auto.smallCanvas = document.createElement('canvas');
+    auto.smallCanvas.width = 80; auto.smallCanvas.height = 60;
+  }
+  const c = auto.smallCanvas;
+  const ctx = c.getContext('2d');
+  try{
+    ctx.drawImage(video, 0, 0, 80, 60);
+  }catch(_){
+    auto.loopId = setTimeout(autoTick, auto.INTERVAL); return;
+  }
+  const data = ctx.getImageData(0, 0, 80, 60).data;
+
+  if(auto.lastSample){
+    let diff = 0;
+    const len = data.length;
+    for(let i=0; i<len; i+=4){
+      diff += Math.abs(data[i]   - auto.lastSample[i])
+           +  Math.abs(data[i+1] - auto.lastSample[i+1])
+           +  Math.abs(data[i+2] - auto.lastSample[i+2]);
+    }
+    const avg = diff / (len/4) / 3;
+
+    if(avg < auto.THRESHOLD){
+      auto.stableCount++;
+      const progress = Math.min(1, auto.stableCount / auto.REQUIRED);
+      updateStabilityUI(progress, true);
+
+      if(auto.stableCount >= auto.REQUIRED){
+        // اُقتنصت اللحظة → التقط
+        shutterWrap.classList.add('armed');
+        setTimeout(() => shutterWrap.classList.remove('armed'), 500);
+        performCapture(true);
+        // إعادة ضبط
+        auto.stableCount = 0;
+        auto.lastSample = null;
+      }
+    } else {
+      // حركة → صفّر العداد
+      auto.stableCount = 0;
+      updateStabilityUI(0, true);
+    }
+  } else {
+    updateStabilityUI(0, true);
+  }
+
+  auto.lastSample = new Uint8ClampedArray(data);
+  auto.loopId = setTimeout(autoTick, auto.INTERVAL);
+}
+
+function updateStabilityUI(progress, autoOn){
+  // حلقة التقدم
+  shutterProgressCircle.style.strokeDashoffset = SHUTTER_CIRC * (1 - progress);
+
+  if(!autoOn){
+    autoStatus.classList.remove('show','armed');
+    smartCorners.classList.remove('show');
+    return;
+  }
+  if(progress >= 1){
+    autoStatus.textContent = 'التقاط الآن… ✓';
+    autoStatus.classList.add('show','armed');
+    smartCorners.classList.add('show');
+  } else if(progress > 0){
+    autoStatus.textContent = 'ابقِ ثابتًا…';
+    autoStatus.classList.add('show');
+    autoStatus.classList.remove('armed');
+    smartCorners.classList.add('show');
+  } else {
+    autoStatus.textContent = 'حرّك الكاميرا فوق المستند';
+    autoStatus.classList.add('show');
+    autoStatus.classList.remove('armed');
+    smartCorners.classList.remove('show');
+  }
+}
+
+function setAutoCapture(on){
+  auto.enabled = !!on;
+  shutterWrap.classList.toggle('auto-on', auto.enabled);
+  autoCapBtn.classList.toggle('mode-flash', auto.enabled);
+  autoCapBtn.classList.toggle('mode-off', !auto.enabled);
+  autoCapBtn.querySelector('.mode-label').textContent = auto.enabled ? 'تلقائي' : 'يدوي';
+
+  if(auto.enabled){
+    showToast('وضع تلقائي: ابقِ الكاميرا ثابتة فوق المستند', 2200);
+    startAutoLoop();
+  } else {
+    stopAutoLoop();
+    updateStabilityUI(0, false);
+    showToast('وضع يدوي', 1200);
+  }
+}
+
+autoCapBtn.addEventListener('click', () => setAutoCapture(!auto.enabled));
+
+/* ========= معاينات ========= */
+function refreshPages(){
+  pagesRow.innerHTML = '';
+  pageCount.textContent = state.pages.length;
+  if(state.pages.length === 0){
+    pagesRow.innerHTML = '<div class="empty-thumbs">لم تلتقط أي صفحة بعد — اضغط الزر الأبيض للالتقاط</div>';
+    return;
+  }
+  state.pages.forEach((p, i) => {
+    const t = document.createElement('div');
+    t.className = 'thumb';
+    t.innerHTML = `
+      <img src="${p.current}" alt="ص${i+1}">
+      <span class="num">${i+1}</span>
+      <button class="del" aria-label="حذف">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>`;
+    t.addEventListener('click', (e) => {
+      if(e.target.closest('.del')) return;
+      openReview(i);
+    });
+    t.querySelector('.del').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if(confirm(`حذف الصفحة ${i+1}؟`)){
+        state.pages.splice(i, 1);
+        refreshPages();
+      }
+    });
+    pagesRow.appendChild(t);
+  });
+  setTimeout(() => { pagesRow.scrollLeft = -pagesRow.scrollWidth; }, 50);
+}
+
+/* ========= الفلاتر ========= */
+function applyFilter(srcDataURL, filter, rotation){
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const rot = ((rotation % 360) + 360) % 360;
+      let w = img.naturalWidth, h = img.naturalHeight;
+      const c = document.createElement('canvas');
+      const ctx = c.getContext('2d');
+      if(rot === 90 || rot === 270){ c.width = h; c.height = w; }
+      else { c.width = w; c.height = h; }
+      ctx.save();
+      ctx.translate(c.width/2, c.height/2);
+      ctx.rotate(rot * Math.PI/180);
+      ctx.drawImage(img, -w/2, -h/2);
+      ctx.restore();
+
+      const data = ctx.getImageData(0, 0, c.width, c.height);
+      const d = data.data;
+      switch(filter){
+        case 'grayscale':
+          for(let i=0;i<d.length;i+=4){
+            const g = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+            d[i]=d[i+1]=d[i+2]=g;
+          } break;
+        case 'bw':
+          for(let i=0;i<d.length;i+=4){
+            const g = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+            const v = g > 150 ? 255 : 0;
+            d[i]=d[i+1]=d[i+2]=v;
+          } break;
+        case 'document':
+          for(let i=0;i<d.length;i+=4){
+            for(let k=0;k<3;k++){
+              let v = (d[i+k] - 128) * 1.45 + 138;
+              d[i+k] = Math.max(0, Math.min(255, v));
+            }
+          } break;
+        case 'enhance':
+          for(let i=0;i<d.length;i+=4){
+            for(let k=0;k<3;k++){
+              let v = (d[i+k] - 128) * 1.2 + 132;
+              d[i+k] = Math.max(0, Math.min(255, v));
+            }
+          } break;
+      }
+      if(filter !== 'original') ctx.putImageData(data, 0, 0);
+      resolve(c.toDataURL('image/jpeg', 0.92));
+    };
+    img.src = srcDataURL;
+  });
+}
+
+/* ========= المراجعة ========= */
+function openReview(i){
+  state.currentEdit = i;
+  const p = state.pages[i];
+  el('revIdx').textContent = (i+1);
+  previewImg.src = p.current;
+  document.querySelectorAll('.filter').forEach(f => {
+    f.classList.toggle('active', f.dataset.filter === p.filter);
+  });
+  reviewScreen.classList.add('open');
+}
+reviewClose.addEventListener('click', () => reviewScreen.classList.remove('open'));
+
+filters.addEventListener('click', async (e) => {
+  const f = e.target.closest('.filter');
+  if(!f) return;
+  document.querySelectorAll('.filter').forEach(x => x.classList.remove('active'));
+  f.classList.add('active');
+  const p = state.pages[state.currentEdit];
+  p.filter = f.dataset.filter;
+  const out = await applyFilter(p.original, p.filter, p.rotation);
+  p.current = out;
+  previewImg.src = out;
+});
+
+rotateBtn.addEventListener('click', async () => {
+  const p = state.pages[state.currentEdit];
+  p.rotation = (p.rotation + 90) % 360;
+  const out = await applyFilter(p.original, p.filter, p.rotation);
+  p.current = out;
+  previewImg.src = out;
+});
+
+saveEditBtn.addEventListener('click', () => {
+  refreshPages();
+  reviewScreen.classList.remove('open');
+  showToast('تم حفظ التعديلات');
+});
+
+/* ========= تصدير PDF ========= */
+let lastPdfBlob = null;
+let lastPdfName = null;
+
+const pdfReady = el('pdfReady');
+const sharePdfBtn = el('sharePdfBtn');
+const downloadPdfBtn = el('downloadPdfBtn');
+const pdfReadyClose = el('pdfReadyClose');
+const pdfFileName = el('pdfFileName');
+const pdfFileSize = el('pdfFileSize');
+
+function fmtSize(bytes){
+  if(bytes < 1024) return bytes + ' B';
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/(1024*1024)).toFixed(2) + ' MB';
+}
+
+function downloadBlob(blob, fileName){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 1500);
+}
+
+async function sharePdf(){
+  if(!lastPdfBlob || !lastPdfName) return;
+  const file = new File([lastPdfBlob], lastPdfName, { type:'application/pdf' });
+  // Web Share API مع ملفات (Android)
+  if(navigator.canShare && navigator.canShare({ files:[file] })){
+    try{
+      await navigator.share({
+        files:[file],
+        title: lastPdfName,
+        text: 'ملف PDF من الماسح الضوئي'
+      });
+      showToast('تم ✓');
+      pdfReady.classList.remove('show');
+    }catch(err){
+      if(err.name !== 'AbortError'){
+        console.warn(err);
+        // fallback: تنزيل مباشر
+        downloadBlob(lastPdfBlob, lastPdfName);
+        showToast('تم التنزيل في مجلد التنزيلات');
+      }
+    }
+  } else {
+    // المتصفح لا يدعم مشاركة الملفات
+    downloadBlob(lastPdfBlob, lastPdfName);
+    showToast('تم التنزيل في مجلد التنزيلات');
+  }
+}
+
+sharePdfBtn.addEventListener('click', sharePdf);
+downloadPdfBtn.addEventListener('click', () => {
+  if(lastPdfBlob && lastPdfName){
+    downloadBlob(lastPdfBlob, lastPdfName);
+    showToast('تم التنزيل ✓');
+  }
+});
+pdfReadyClose.addEventListener('click', () => pdfReady.classList.remove('show'));
+
+exportBtn.addEventListener('click', () => {
+  if(state.pages.length === 0){ showToast('لا توجد صفحات لإنشاء PDF'); return; }
+  exportSheet.classList.add('open');
+});
+cancelExport.addEventListener('click', () => exportSheet.classList.remove('open'));
+
+doExport.addEventListener('click', async () => {
+  const name = (el('fileName').value || 'مستند').trim();
+  const paper = el('paperSize').value;
+  const orient = el('paperOrient').value;
+  const quality = parseFloat(el('quality').value);
+  const margin = parseInt(el('margins').value, 10);
+
+  const { jsPDF } = window.jspdf;
+  doExport.disabled = true;
+  doExport.textContent = 'جارٍ الإنشاء...';
+
+  try{
+    const sizes = { a4:[210,297], letter:[215.9,279.4], legal:[215.9,355.6] };
+    let pdf;
+
+    for(let i=0; i<state.pages.length; i++){
+      const dataURL = state.pages[i].current;
+      const img = await new Promise(res => {
+        const im = new Image();
+        im.onload = () => res(im);
+        im.src = dataURL;
+      });
+      const imgW = img.naturalWidth, imgH = img.naturalHeight;
+
+      let pageW, pageH;
+      if(paper === 'auto'){
+        const px2mm = 25.4 / 96;
+        pageW = imgW * px2mm; pageH = imgH * px2mm;
+      } else {
+        const s = sizes[paper];
+        if(orient === 'landscape'){ pageW = s[1]; pageH = s[0]; }
+        else { pageW = s[0]; pageH = s[1]; }
+      }
+
+      if(i === 0){
+        pdf = new jsPDF({
+          orientation: pageW > pageH ? 'landscape' : 'portrait',
+          unit:'mm',
+          format: paper === 'auto' ? [pageW, pageH] : (orient === 'landscape' ? [pageH, pageW] : [pageW, pageH])
+        });
+      } else {
+        pdf.addPage(
+          paper === 'auto' ? [pageW, pageH] : (orient === 'landscape' ? [pageH, pageW] : [pageW, pageH]),
+          pageW > pageH ? 'landscape' : 'portrait'
+        );
+      }
+
+      const availW = pageW - margin*2, availH = pageH - margin*2;
+      const ratio = Math.min(availW/imgW, availH/imgH);
+      const drawW = imgW * ratio, drawH = imgH * ratio;
+      const x = (pageW - drawW)/2, y = (pageH - drawH)/2;
+
+      const c = document.createElement('canvas');
+      c.width = imgW; c.height = imgH;
+      c.getContext('2d').drawImage(img, 0, 0);
+      const finalData = c.toDataURL('image/jpeg', quality);
+
+      pdf.addImage(finalData, 'JPEG', x, y, drawW, drawH, undefined, 'FAST');
+    }
+
+    // إنشاء البلوب بدلًا من حفظ مباشر
+    const blob = pdf.output('blob');
+    const fileName = `${name}.pdf`;
+    lastPdfBlob = blob;
+    lastPdfName = fileName;
+
+    // عرض نافذة "PDF جاهز" مع خيار مشاركة أو تنزيل
+    pdfFileName.textContent = fileName;
+    pdfFileSize.textContent = `${fmtSize(blob.size)} • ${state.pages.length} صفحة`;
+    exportSheet.classList.remove('open');
+    pdfReady.classList.add('show');
+
+  }catch(err){
+    console.error(err);
+    showToast('حدث خطأ أثناء إنشاء PDF');
+  }finally{
+    doExport.disabled = false;
+    doExport.textContent = 'إنشاء PDF';
+  }
+});
+
+window.addEventListener('beforeunload', () => {
+  stopAutoLoop();
+  if(state.stream){ state.stream.getTracks().forEach(t => t.stop()); }
+});
+
+// إيقاف مؤقت عند إخفاء التطبيق (توفير البطارية)
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden){
+    stopAutoLoop();
+  } else if(auto.enabled && state.stream){
+    setTimeout(() => startAutoLoop(), 300);
+  }
+});
+</script>
+</body>
+</html>
