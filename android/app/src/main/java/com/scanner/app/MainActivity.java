@@ -11,13 +11,15 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // اجعل WebView شفافًا حتى تظهر الكاميرا خلفه عند استخدام CameraPreview
+
+        // اجعل خلفية نافذة Activity شفافة
+        getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+        // اجعل WebView شفافًا حتى تظهر الكاميرا خلفه
         WebView webView = getBridge().getWebView();
         if (webView != null) {
             webView.setBackgroundColor(Color.TRANSPARENT);
             webView.setBackground(new ColorDrawable(Color.TRANSPARENT));
-            // اجعل WebView يرسم فوق محتوى آخر
-            webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         }
     }
 }
