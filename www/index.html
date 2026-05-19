@@ -909,6 +909,11 @@ async function nativeCapture(){
 
 async function nativeSetFlash(mode){
   if(!NATIVE.enabled) return;
+  // الكاميرا الأمامية لا تدعم الفلاش — تجنّب الانهيار
+  if(NATIVE.facing === 'front' && mode !== 'off'){
+    console.log('Skipping flash on front camera');
+    return;
+  }
   try{
     await NATIVE.CameraPreview.setFlashMode({ flashMode: mode });
     NATIVE.flash = mode;
@@ -918,9 +923,23 @@ async function nativeSetFlash(mode){
 async function nativeSwitchCamera(){
   if(!NATIVE.enabled) return;
   try{
+    // أطفئ الفلاش قبل التبديل
+    await nativeSetFlash('off');
     await NATIVE.CameraPreview.flip();
     NATIVE.facing = NATIVE.facing === 'rear' ? 'front' : 'rear';
-  }catch(e){ console.warn('flip:', e); }
+    // إعادة ضبط حالة الفلاش في UI
+    state.flashMode = 'off';
+    const lbl = document.getElementById('nativeFlashLabel');
+    const btn = document.getElementById('nativeFlashBtn');
+    if(lbl) lbl.textContent = 'إيقاف';
+    if(btn) btn.classList.remove('on');
+    if(NATIVE.facing === 'front'){
+      showToast('الكاميرا الأمامية بدون فلاش', 1500);
+    }
+  }catch(e){
+    console.warn('flip:', e);
+    showToast('فشل تبديل الكاميرا');
+  }
 }
 
 // نسخة مبسطة من sample للالتقاط التلقائي في النظام الأصلي
@@ -1304,7 +1323,13 @@ async function performCapture(viaAuto=false){
 
     if(!dataURL){ auto.capturing = false; return; }
 
-    state.pages.push({ original: dataURL, current: dataURL, filter: 'original', rotation: 0 });
+    // تطبيق فلتر "مستند" تلقائياً لتحسين الوضوح وجعل الصورة كالمستند الممسوح
+    let displayURL = dataURL;
+    try{
+      displayURL = await applyFilter(dataURL, 'document', 0);
+    }catch(e){ console.warn('auto-filter failed:', e); }
+
+    state.pages.push({ original: dataURL, current: displayURL, filter: 'document', rotation: 0 });
     refreshPages();
     showToast(`تم التقاط الصفحة ${state.pages.length}${viaAuto ? ' (تلقائي ✓)' : ''}`);
 
@@ -1599,29 +1624,49 @@ function downloadBlob(blob, fileName){
 
 async function sharePdf(){
   if(!lastPdfBlob || !lastPdfName) return;
+
   const file = new File([lastPdfBlob], lastPdfName, { type:'application/pdf' });
-  // Web Share API مع ملفات (Android)
+
+  // محاولة 1: Web Share API مع ملفات (مدعومة في Android Chrome/WebView)
   if(navigator.canShare && navigator.canShare({ files:[file] })){
     try{
       await navigator.share({
         files:[file],
         title: lastPdfName,
-        text: 'ملف PDF من الماسح الضوئي'
       });
       showToast('تم ✓');
       pdfReady.classList.remove('show');
+      return;
     }catch(err){
-      if(err.name !== 'AbortError'){
-        console.warn(err);
-        // fallback: تنزيل مباشر
-        downloadBlob(lastPdfBlob, lastPdfName);
-        showToast('تم التنزيل في مجلد التنزيلات');
-      }
+      if(err.name === 'AbortError'){ return; }
+      console.warn('navigator.share failed:', err);
     }
-  } else {
-    // المتصفح لا يدعم مشاركة الملفات
+  }
+
+  // محاولة 2: تنزيل مباشر عبر blob URL
+  try{
     downloadBlob(lastPdfBlob, lastPdfName);
     showToast('تم التنزيل في مجلد التنزيلات');
+    return;
+  }catch(e){
+    console.warn('downloadBlob failed:', e);
+  }
+
+  // محاولة 3: فتح PDF في نافذة جديدة (يفتح في عارض PDF)
+  try{
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUri = reader.result;
+      const w = window.open();
+      if(w){
+        w.document.write(`<iframe src="${dataUri}" style="width:100%;height:100vh;border:0"></iframe>`);
+      } else {
+        showToast('تعذر فتح PDF — تأكد من السماح بالنوافذ المنبثقة');
+      }
+    };
+    reader.readAsDataURL(lastPdfBlob);
+  }catch(e){
+    showToast('تعذر حفظ PDF: ' + e.message, 4000);
   }
 }
 
@@ -1650,19 +1695,44 @@ doExport.addEventListener('click', async () => {
   const { jsPDF } = window.jspdf;
   doExport.disabled = true;
   doExport.textContent = 'جارٍ الإنشاء...';
+  showToast('بدء إنشاء PDF...', 1500);
 
   try{
     const sizes = { a4:[210,297], letter:[215.9,279.4], legal:[215.9,355.6] };
     let pdf;
+    // الحد الأقصى للأبعاد لتفادي نفاد الذاكرة على الجوال
+    const MAX_DIM = 2000;
 
     for(let i=0; i<state.pages.length; i++){
+      doExport.textContent = `جارٍ المعالجة ${i+1}/${state.pages.length}`;
+
       const dataURL = state.pages[i].current;
-      const img = await new Promise(res => {
+      const img = await new Promise((res, rej) => {
         const im = new Image();
         im.onload = () => res(im);
+        im.onerror = () => rej(new Error('فشل تحميل الصورة'));
         im.src = dataURL;
       });
-      const imgW = img.naturalWidth, imgH = img.naturalHeight;
+
+      // تصغير الصورة إن كانت أكبر من الحد الأقصى (لتفادي نفاد الذاكرة)
+      let imgW = img.naturalWidth, imgH = img.naturalHeight;
+      let drawSrc = img;
+      if(imgW > MAX_DIM || imgH > MAX_DIM){
+        const scale = Math.min(MAX_DIM/imgW, MAX_DIM/imgH);
+        const newW = Math.floor(imgW * scale);
+        const newH = Math.floor(imgH * scale);
+        const tc = document.createElement('canvas');
+        tc.width = newW; tc.height = newH;
+        tc.getContext('2d').drawImage(img, 0, 0, newW, newH);
+        // أنشئ صورة جديدة من canvas المصغّر
+        const smallURL = tc.toDataURL('image/jpeg', 0.9);
+        drawSrc = await new Promise((res) => {
+          const im2 = new Image();
+          im2.onload = () => res(im2);
+          im2.src = smallURL;
+        });
+        imgW = newW; imgH = newH;
+      }
 
       let pageW, pageH;
       if(paper === 'auto'){
@@ -1694,27 +1764,39 @@ doExport.addEventListener('click', async () => {
 
       const c = document.createElement('canvas');
       c.width = imgW; c.height = imgH;
-      c.getContext('2d').drawImage(img, 0, 0);
+      c.getContext('2d').drawImage(drawSrc, 0, 0);
       const finalData = c.toDataURL('image/jpeg', quality);
 
       pdf.addImage(finalData, 'JPEG', x, y, drawW, drawH, undefined, 'FAST');
+
+      // مهلة قصيرة بين الصفحات لتفادي تجميد الواجهة
+      await new Promise(r => setTimeout(r, 30));
     }
 
-    // إنشاء البلوب بدلًا من حفظ مباشر
+    doExport.textContent = 'جارٍ الحفظ...';
+
+    // إنشاء البلوب
     const blob = pdf.output('blob');
     const fileName = `${name}.pdf`;
     lastPdfBlob = blob;
     lastPdfName = fileName;
 
-    // عرض نافذة "PDF جاهز" مع خيار مشاركة أو تنزيل
+    // عرض نافذة "PDF جاهز"
     pdfFileName.textContent = fileName;
     pdfFileSize.textContent = `${fmtSize(blob.size)} • ${state.pages.length} صفحة`;
     exportSheet.classList.remove('open');
     pdfReady.classList.add('show');
 
+    showToast('تم إنشاء PDF بنجاح ✓');
+
+    // في الوضع الأصلي، اطلب المشاركة مباشرة (لأن download قد لا يعمل في WebView)
+    if(window.Capacitor && window.Capacitor.isNativePlatform()){
+      setTimeout(() => sharePdf(), 500);
+    }
+
   }catch(err){
-    console.error(err);
-    showToast('حدث خطأ أثناء إنشاء PDF');
+    console.error('PDF Error:', err);
+    showToast('خطأ: ' + (err.message || 'فشل إنشاء PDF'), 4000);
   }finally{
     doExport.disabled = false;
     doExport.textContent = 'إنشاء PDF';
