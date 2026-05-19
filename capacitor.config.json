@@ -2,10 +2,12 @@
   "appId": "com.scanner.app",
   "appName": "الماسح الضوئي",
   "webDir": "www",
+  "backgroundColor": "#00000000",
   "android": {
     "allowMixedContent": true,
     "captureInput": true,
-    "webContentsDebuggingEnabled": false
+    "webContentsDebuggingEnabled": false,
+    "backgroundColor": "#00000000"
   },
   "plugins": {
     "CameraPreview": {
