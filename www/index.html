@@ -431,12 +431,20 @@
   }
 
   /* ===== الوضع الأصلي (APK مبني بـ Capacitor) ===== */
-  body.is-native .install-screen{display:none !important} /* لا حاجة لشاشة تثبيت في APK */
-  body.is-native #video{display:none} /* الكاميرا تُعرض أصليًا خلف WebView */
+  body.is-native .install-screen{display:none !important}
+
+  /* اجعل كل خلفيات الصفحة شفافة عند عرض الكاميرا الأصلية */
+  body.is-native{background:transparent !important}
+  body.is-native main{background:transparent !important}
   body.is-native .stage{background:transparent !important}
-  body.is-native main{background:transparent}
-  /* اجعل خلفية WebView شفافة في منطقة الكاميرا فقط */
   body.is-native .stage.hidden{display:none}
+
+  /* اخفِ عنصر الفيديو لأن الكاميرا تُعرض خلف WebView */
+  body.is-native #video{display:none !important}
+
+  /* أعِد إظهار خلفية الهيدر والشريط السفلي ليبقيا واضحين فوق الكاميرا */
+  body.is-native header{background:rgba(11,18,32,.85) !important;backdrop-filter:blur(10px)}
+  body.is-native .controls{background:linear-gradient(to top,rgba(11,18,32,.92),rgba(11,18,32,.55)) !important}
 </style>
 </head>
 <body>
